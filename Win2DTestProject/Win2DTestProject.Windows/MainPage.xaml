@@ -1,0 +1,22 @@
+﻿<Page
+    x:Class="Win2DTestProject.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Win2DTestProject"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    mc:Ignorable="d"
+    Loaded="MainPage_OnLoaded"
+    Unloaded="MainPage_OnUnloaded">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <canvas:CanvasAnimatedControl x:Name="CanvasControl" 
+                                      Draw="CanvasControl_OnDraw"
+                                      Update="CanvasControl_OnUpdate"
+                                      CreateResources="CanvasControl_OnCreateResources" 
+                                      PointerPressed="CanvasControl_OnPointerPressed"
+                                      PointerMoved="CanvasControl_OnPointerMoved"
+                                      PointerReleased="CanvasControl_OnPointerReleased"/>
+    </Grid>
+</Page>
