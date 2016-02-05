@@ -43,11 +43,11 @@ namespace Win2DTestProject
 
         //private Transform2DEffect rotationEffect = new Transform2DEffect();
         //private Transform2DEffect translationEffect = new Transform2DEffect();
-
+        private Projectile projectilePrototype = new Projectile();
         private List<Tank> Tanks = new List<Tank>();
         private List<Projectile> Projectiles = new List<Projectile>();
         public Color[] FractionColors = { Colors.Red, Colors.Aqua, Colors.White };
-        public Vector2 TargetPos { get; set; }
+        public Vector2 FiringTargetPos { get; set; }
         public bool FireCommand { get; set; }
 
         public MainPage()
@@ -69,21 +69,25 @@ namespace Win2DTestProject
                 args.DrawingSession.DrawImage(tank.translationEffect);
                 if (tank.selected)
                 {
-                    args.DrawingSession.DrawCircle(tank.position, tank.size + 5.0f, Colors.Crimson);
+                    args.DrawingSession.DrawCircle(tank.CurrentPosition, tank.size + 5.0f, Colors.Crimson);
 
                     //debug info
-                    args.DrawingSession.DrawText(tank.position.ToString(), 100, 100, Colors.Red);
-                    args.DrawingSession.DrawText(tank.direction.ToString(), 100, 150, Colors.Red);
-                    args.DrawingSession.DrawText(tank.currentRot.ToString(), 100, 200, Colors.Red);
+                    args.DrawingSession.DrawText(tank.CurrentPosition.ToString(), 100, 100, Colors.Red);
+
+                    args.DrawingSession.DrawText("TargetPos:" + tank.TargetPosition.ToString(), 100, 150, Colors.Red);
+                    args.DrawingSession.DrawText("FiringTarget:" + tank.FiringTarget.ToString(), 100, 200, Colors.Red);
+
+                    args.DrawingSession.DrawText(tank.desiredRot.ToString(), 100, 250, Colors.Red);
+                    args.DrawingSession.DrawText(tank.currentRot.ToString(), 100, 300, Colors.Red);
+                    args.DrawingSession.DrawText((tank.currentRot - tank.desiredRot).ToString(), 100, 350, Colors.Red);
 
                 }
             }
 
             foreach (var projectile in Projectiles)
             {
-                //args.DrawingSession.DrawImage(projectile.translationEffect);
-                //args.DrawingSession.DrawCircle(projectile.pos.X, projectile.pos.Y, 5.0f, Colors.Yellow);
                 args.DrawingSession.DrawCircle(projectile.pos.X, projectile.pos.Y, 5.0f, new CanvasSolidColorBrush(canvasAnimatedControl, Colors.Yellow));
+                args.DrawingSession.DrawCircle(projectile.Target, 15.0f, Colors.Crimson, 5.0f);
             }
 
 
@@ -98,12 +102,12 @@ namespace Win2DTestProject
                 {
                     //calc fire direction and rotate, mark the tank as firing
                     tank.firing = true;
-                    tank.direction = Vector2.Normalize(TargetPos - tank.position);
-                    tank.target = TargetPos;
-                    tank.desiredRot = (float)Math.Atan2(tank.target.Y, tank.target.X);
+                    //tank.direction = Vector2.Normalize(FiringTargetPos - tank.CurrentPosition);
+                    tank.FiringTarget = FiringTargetPos;
+                    //tank.desiredRot = (float)Math.Atan2(tank.FiringTarget.Y, tank.FiringTarget.X);
                     FireCommand = false;
                 }
-                else
+                else if (!tank.firing)
                 {
                     tank.desiredRot = (float)Math.Atan2(tank.direction.Y, tank.direction.X);
 
@@ -113,20 +117,29 @@ namespace Win2DTestProject
                 if (Math.Abs(tank.desiredRot - tank.currentRot) > 0.01f)
                 {
                     tank.rotating = true;
+                    //var rot = Math.Atan2(Math.Sin(tank.desiredRot - tank.currentRot), Math.Cos(tank.desiredRot - tank.currentRot));
                     tank.currentRot = tank.currentRot - 0.05f * (tank.currentRot - tank.desiredRot);
-
+                    //tank.currentRot += (float)rot * 0.05f;
                 }
                 else
                 {
                     tank.rotating = false;
-                    //update position
-                    tank.position = tank.position + tank.direction;
+                    //update position if not already on target
+                    if (Vector2.Distance(tank.CurrentPosition, tank.TargetPosition) > 1)
+                    {
+                        tank.CurrentPosition = tank.CurrentPosition + tank.direction;
+                    }
+                    else
+                    {
+                        tank.CurrentPosition.X = tank.TargetPosition.X;
+                        tank.CurrentPosition.Y = tank.TargetPosition.Y;
 
-                    if (tank.position.X < minSize.X || tank.position.X > maxSize.X)
+                    }
+                    if (tank.CurrentPosition.X < minSize.X || tank.CurrentPosition.X > maxSize.X)
                     {
                         tank.direction.X *= -1;
                     }
-                    if (tank.position.Y < minSize.Y || tank.position.Y > maxSize.Y)
+                    if (tank.CurrentPosition.Y < minSize.Y || tank.CurrentPosition.Y > maxSize.Y)
                     {
                         tank.direction.Y *= -1;
                     }
@@ -138,23 +151,12 @@ namespace Win2DTestProject
                     tank.firing = false;
                     //create and fire projectile
                     var projectile = new Projectile();
-                    projectile.pos = tank.position;
-                    projectile.directtion = tank.direction;
-                    projectile.translationEffect = new Transform2DEffect();
-
-
-                    CanvasCommandList pccl = new CanvasCommandList(sender);
-                    using (CanvasDrawingSession pds = pccl.CreateDrawingSession())
-                    {
-                        //pds.DrawCircle(0, 0, 5.0f, new CanvasSolidColorBrush(pds, Colors.Yellow));
-                        pds.DrawCircle(0, 0, 5.0f, Colors.Yellow);
-                    }
-                    projectile.translationEffect.Source = pccl;
-
+                    projectile.pos = new Vector2(tank.CurrentPosition.X, tank.CurrentPosition.Y);
+                    projectile.Target = new Vector2(tank.FiringTarget.X, tank.FiringTarget.Y);
                     this.Projectiles.Add(projectile);
                 }
 
-                var translationMatrix = Matrix3x2.CreateTranslation(tank.position);
+                var translationMatrix = Matrix3x2.CreateTranslation(tank.CurrentPosition);
                 tank.translationEffect.TransformMatrix = translationMatrix;
                 var rotationMatrix = Matrix3x2.CreateRotation(tank.currentRot);
                 tank.rotationEffect.TransformMatrix = rotationMatrix;
@@ -168,9 +170,13 @@ namespace Win2DTestProject
                     toRemove.Add(projectile);
                     continue;
                 }
-                projectile.pos = projectile.pos + projectile.directtion * 3.0f;
-                var projectileTranslationMatrix = Matrix3x2.CreateTranslation(projectile.directtion);
-                projectile.translationEffect.TransformMatrix = projectileTranslationMatrix;
+                if (Vector2.Distance(projectile.pos, projectile.Target) < 1f)
+                {
+                    toRemove.Add(projectile);
+                    continue;
+                }
+                projectile.pos = projectile.pos + projectile.direction * 3.0f;
+
             }
 
             foreach (var projectile in toRemove)
@@ -190,9 +196,9 @@ namespace Win2DTestProject
         {
             //init tanks
             InitTanks();
-
             foreach (var tank in Tanks)
             {
+
                 CanvasCommandList ccl = new CanvasCommandList(sender);
                 using (CanvasDrawingSession cds = ccl.CreateDrawingSession())
                 {
@@ -203,6 +209,7 @@ namespace Win2DTestProject
                     //cannon
                     cds.DrawRectangle(new Rect(-tank.size / 2, -tank.size / 2 + (tank.size / 1.5f), tank.size * 3, tank.size / 2), FractionColors[tank.fraction]);
                     //"wheels"
+
                 }
                 //set the effect source
                 tank.rotationEffect.Source = ccl;
@@ -214,7 +221,8 @@ namespace Win2DTestProject
             {
                 pds.DrawCircle(0, 0, 5.0f, new CanvasSolidColorBrush(pds, Colors.Yellow));
             }
-
+            projectilePrototype.translationEffect = new Transform2DEffect();
+            projectilePrototype.translationEffect.Source = pccl;
 
         }
 
@@ -227,7 +235,7 @@ namespace Win2DTestProject
             {
                 var tank = new Tank();
                 Vector2 startPos = new Vector2((float)r.NextDouble() * (maxSize.X - minSize.X) + minSize.X, (float)r.NextDouble() * (maxSize.Y - maxSize.Y) + minSize.Y);
-                tank.position = startPos;
+                tank.CurrentPosition = startPos;
                 tank.direction = Vector2.Normalize(new Vector2((float)r.NextDouble() - .5f, (float)r.NextDouble() - 0.5f));
                 tank.currentRot = 0.0f;//(float)Math.Asin(tank.direction.X);
                 tank.desiredRot = 0.0f;
@@ -274,7 +282,7 @@ namespace Win2DTestProject
                     {
                         tempTank = tank;
                     }
-                    if (!newSelection && Vector2.Distance(pointerPos, tank.position) < tank.size)
+                    if (!newSelection && Vector2.Distance(pointerPos, tank.CurrentPosition) < tank.size)
                     {
                         tank.selected = true;
                         isTankSelected = true;
@@ -289,13 +297,13 @@ namespace Win2DTestProject
                 }
                 if (!newSelection && tempTank != null)
                 {
-                    tempTank.direction = Vector2.Normalize(pointerPos - tempTank.position);
+                    tempTank.TargetPosition = pointerPos;
                     tempTank.selected = true;
                 }
             }
             else if (isRight)
             {
-                this.TargetPos = pointerPos;
+                this.FiringTargetPos = pointerPos;
                 this.FireCommand = true;
             }
 
